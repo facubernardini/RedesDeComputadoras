@@ -32,8 +32,8 @@
 - QUAGGA | Configuracion de interfaces y Routeo dinámico con RIP
 	/etc/init.d/quagga start
 	vtysh
-
 	configure terminal
+
 	interface ethX
 	ip address "IP/m"
 	no shutdown
@@ -86,7 +86,22 @@
 	INTERFACES=“eth0 eth1 ethX”
 
 	vim dhcpd.conf
-	// Configuracion del scope
+	// Configuracion del/los scopes
+	Subnet "IP" netmask "MASK" {
+		range X X;
+		option domain-name-servers X
+		option domain-search "A", "B";
+		option domain-name "A";
+		option subnet-mask "MASK";
+		option routers "IP";
+		option broadcast-address "IP";
+		default-lease-time 600;
+		max-lease-time 7200;
+		host pc1{
+			hardware ethernet "MAC";
+			fixed-address "IP";
+		}
+	}
 
 	/etc/init.d/isc-dhcp-server start
 
@@ -96,7 +111,7 @@
 		iface eth0 inet dhcp
 		ifup eth0
 
-- Static Client
+- Static Client (srv1)
 	vim /etc/network/interfaces.d/eth0
 		iface eth0 inet static
 		address X
@@ -108,7 +123,9 @@
 		domain X
 		search X X
 
-- Configuracion DNS:
+	ifup eth0
+
+- Configuracion DNS (ns1):
 	vim /etc/network/interfaces.d/eth0
 		iface eth0 inet static
 		address X
