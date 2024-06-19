@@ -1,35 +1,37 @@
 - Ver info:
+
 	ip link show
-	ip add show [dev eth0]
+	ip add show 
 	ip route show
 	ip route show table isp1
 	ip route get "IP"
 	ip rule show
 	ip neigh show
-	ip address show
 
 - Asignar/Borrar IP y levantar interfaz
+
 	ip address add "IP/m" dev ethX
 	ip address del "IP/m" dev ethX
 	ip link set ethX up
 
 - Ruteo estático
-	ip route add "IP/m" via "IP"
 
-- Borrar ruta
-	ip route del "IP/m" via "IP"
+	ip route add "IP/m" via "IP"
+	ip route add "IP/m" via "IP" table "nombre tabla"
+	ip route del "IP/m" via "IP"	
 
 - Crear nueva tabla de ruteo
+
 	sudo vi /etc/iproute2/rt_tables
 	Toco "a" para poder ingresar texto
 	Agrego 1 isp2 (arriba de unspec), toco Esc y pongo :wq para guardar los cambios
 
-	ip route add default via "IP" table isp2
-
 - Crear regla
+
 	ip rule add from "IP/m" table isp2
 
-- QUAGGA | Configuracion de interfaces y Routeo dinámico con RIP
+- QUAGGA RIP | Configuracion de interfaces y Routeo dinámico con RIP
+
 	/etc/init.d/quagga start
 	vtysh
 	configure terminal
@@ -47,26 +49,21 @@
 	redistribute static
 
 - Crear bridge y activarlo
+
 	ip link add name "nombre bridge" type bridge
 	ip link set ethX master "nombre bridge"
 	ip link set ethY master "nombre bridge"
 	ip link set "nombre bridge" up
 
 - Crear bonding y activarlo
+
 	ip link add "nombre bonding" type bond mode active-backup
 	ip link set ethX master "nombre bonding"
 	ip link set ethY master "nombre bonding"
 	ip link set "nombre bonding" up
 
-- Nateo
-	iptables -t nat -A POSTROUTING -o ethX -j SNAT --to-source "IP"
-
-- Borrar nateo
-	iptables -L --line-numbers -t nat (Ver la tabla de NATs existentes)
-	Fijarnos en Chain POSTROUTING (Policy ACCEPT):
-	iptables -t nat -D POSTROUTING "nro de linea"
-
 - Crear y activar Vlans
+
 	Routers
 		ip link add link ethX name ethX.10 type vlan id 10
 		ip address add "IP/m" dev ethX.10
@@ -78,14 +75,22 @@
 		ip link set ethX.10 master br10
 		ip link set br10 up
 
-- DHCP Server
-	cd /etc/dhcp
-	cp dhcpd.conf.EXAMPLE dhcpd.conf
+- Nateo (Crear y borrar)
 
-	vim /etc/default/isc-dhcp-server
+	iptables -t nat -A POSTROUTING -o ethX -j SNAT --to-source "IP"
+
+	iptables -L --line-numbers -t nat (Ver la tabla de NATs existentes)
+	Fijarnos en Chain POSTROUTING (Policy ACCEPT):
+	iptables -t nat -D POSTROUTING "nro de linea"
+
+- DHCP Server (Router)
+
+	cp /etc/dhcp/dhcpd.conf.EXAMPLE /etc/dhcp/dhcpd.conf
+
+	sudo vi /etc/default/isc-dhcp-server
 	INTERFACES=“eth0 eth1 ethX”
 
-	vim dhcpd.conf
+	sudo vi dhcpd.conf
 	// Configuracion del/los scopes
 	Subnet "IP" netmask "MASK" {
 		range X X;
@@ -104,75 +109,75 @@
 	}
 
 	/etc/init.d/isc-dhcp-server start
+	/etc/init.d/isc-dhcp-server status
 
-- Configuracion DHCP Client
-	vim /etc/network/interfaces.d/eth0
+- DHCP Client (PCs)
+
+	sudo vi /etc/network/interfaces.d/eth0
 		auto eth0
 		iface eth0 inet dhcp
-		ifup eth0
 
-- Static Client (srv1)
-	vim /etc/network/interfaces.d/eth0
+	ifup eth0
+
+- Configuración static client (srv1)
+
+	sudo vi /etc/network/interfaces.d/eth0
 		iface eth0 inet static
 		address X
 		netmask X
 		gateway X
 
-	vim /etc/resolv.conf
-		nameserver 127.0.0.1
+	sudo vi /etc/resolv.conf
+		nameserver X
 		domain X
 		search X X
 
 	ifup eth0
 
-- Configuracion DNS (ns1):
-	vim /etc/network/interfaces.d/eth0
+- Configuración DNS (ns1)
+
+	sudo vi /etc/network/interfaces.d/eth0
 		iface eth0 inet static
 		address X
 		netmask X
 		gateway X
+	
+	ifup eth0	
 
-	vim /etc/resolv.conf
+	sudo vi /etc/resolv.conf
 		nameserver 127.0.0.1
 		domain X
-		search X X
+		search X X 
 
-	ifup eth0
-
-	cd /etc/bind
-	vim named.conf.local
+	sudo vi /etc/bind/named.conf.local
 
 		zone "www.ejemplo.com" {
-		type master;
-		file "/etc/bind/db.ejemplo.com";
+			type master/slave;
+			file "/etc/bind/db.ejemplo.com";
 		};
 
 		zone "X.X.X.in-addr.arpa" {
-		type master;
-		file "/etc/bind/db.X.X.X.in-addr.arpa";
+			type master;
+			file "/etc/bind/db.X.X.X.in-addr.arpa";
 		};
 
 		zone “ejemplo.com” {
-		type forward;
-		forwarders {X.X.X.X;};
+			type forward;
+			forwarders {X.X.X.X;};
 		};
 
-	cp db.tricam.com db.www.ejemplo.com
-	cp db.2.168.192.in-addr.arpa db.X.X.X.in-addr.arpa
+	cp /etc/bind/db.tricam.com /etc/bind/db.ejemplo.com
+	cp /etc/bind/db.2.168.192.in-addr.arpa /etc/bind/db.X.X.X.in-addr.arpa
 
-	vim db.www.ejemplo.com
-	// Configuracion del archivo de zona DNS
+	sudo vi /etc/bind/db.ejemplo.com
+	// Configuración del archivo de zona DNS
 
 	/etc/init.d/bind9 start
 
 - Captura de paquetes
+
 	tcpdump -ni eth0
 	tcpdump -e arp (paquetes ARP)
-
-- Envio de paquetes
-	ping
-	hping3
-	traceroute
 
 - Proxy
 	#echo 1 > /proc/sys/net/ipv4/conf/eth0/proxy_arp
